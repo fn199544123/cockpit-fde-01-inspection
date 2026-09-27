@@ -1,0 +1,102 @@
+{% extends 'board/base.html' %}
+{% block title %}超期红牌预警 · 设备点检工单看板{% endblock %}
+{% block heading %}超期红牌预警{% endblock %}
+
+{% block content %}
+<style>
+  .rc-hero { display:flex; align-items:center; gap:26px; background:linear-gradient(135deg,#2a0d12,#141c33);
+             border:1px solid rgba(239,68,68,.5); border-radius:16px; padding:26px 30px; margin-bottom:24px; }
+  .rc-hero.clear { background:linear-gradient(135deg,#0d2a18,#141c33); border-color:rgba(34,197,94,.5); }
+  .rc-hero .big { font-size:64px; font-weight:800; line-height:1; color:var(--danger); }
+  .rc-hero.clear .big { color:var(--ok); }
+  .rc-hero .txt .t { font-size:20px; font-weight:700; letter-spacing:1px; }
+  .rc-hero .txt .d { color:var(--muted); font-size:14px; margin-top:6px; }
+  .rc-badge { display:inline-flex; align-items:center; gap:7px; padding:5px 14px; border-radius:999px;
+              background:rgba(239,68,68,.16); color:var(--danger); font-weight:700; font-size:13px;
+              animation:rcpulse 1.4s ease-in-out infinite; }
+  @keyframes rcpulse { 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--danger); box-shadow:0 0 8px var(--danger); }
+  tr.never td { background:rgba(239,68,68,.07); }
+  .days { font-weight:700; }
+</style>
+
+<div class="rc-hero {% if redcard_count == 0 %}clear{% endif %}">
+  <div class="big">{{ redcard_count }}</div>
+  <div class="txt">
+    {% if redcard_count %}
+      <div class="t"><span class="rc-badge"><span class="dot"></span>RED CARD</span>&nbsp; 台设备超期未点检,需立即处置</div>
+      <div class="d">其中 从未点检 <b style="color:var(--danger)">{{ never_count }}</b> 台 ·
+        已超期 <b style="color:var(--danger)">{{ overdue_count }}</b> 台 ·
+        最长超期 <b style="color:var(--warn)">{{ worst_days }}</b> 天 ·
+        当前范围启用设备 {{ total_active }} 台(其中未超期 {{ ok_count }} 台)</div>
+    {% else %}
+      <div class="t" style="color:var(--ok)">全部达标 · 当前范围无超期红牌设备</div>
+      <div class="d">启用设备 {{ total_active }} 台均在点检周期内,继续保持。</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="toolbar">
+  <form method="get" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <select name="workshop" onchange="this.form.submit()">
+      <option value="">全部车间</option>
+      {% for w in workshops %}
+        <option value="{{ w }}" {% if w == cur_workshop %}selected{% endif %}>{{ w }}</option>
+      {% endfor %}
+    </select>
+    {% if cur_workshop %}<a class="btn ghost" href="{% url 'board:alerts' %}">清除筛选</a>{% endif %}
+    <noscript><button class="btn" type="submit">筛选</button></noscript>
+  </form>
+  <span class="spacer"></span>
+  <a class="btn" href="{% url 'board:plan' %}">本期应点检计划</a>
+</div>
+
+{% if redcards %}
+<table>
+  <thead>
+    <tr>
+      <th style="width:44px;">#</th>
+      <th>设备编号 / 名称</th>
+      <th>车间</th>
+      <th>负责人</th>
+      <th>点检周期</th>
+      <th>最近点检</th>
+      <th>超期情况</th>
+      <th style="text-align:right;">操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in redcards %}
+    <tr class="{% if e.plan_status == 'never' %}never{% endif %}">
+      <td style="color:var(--muted);">{{ forloop.counter }}</td>
+      <td>
+        <a href="{% url 'board:equipment_detail' e.pk %}"><b>{{ e.code }}</b></a>
+        <div style="color:var(--muted);font-size:13px;">{{ e.name }}</div>
+      </td>
+      <td>{{ e.workshop }}</td>
+      <td>{{ e.owner|default:"—" }}</td>
+      <td>{{ e.cycle_days }} 天</td>
+      <td>
+        {% if e.last_record %}{{ e.last_record.checked_at|date:"m-d H:i" }}
+        {% else %}<span class="pill muted">无记录</span>{% endif %}
+      </td>
+      <td>
+        {% if e.plan_status == 'never' %}
+          <span class="pill danger">从未点检</span>
+        {% else %}
+          <span class="pill danger">超期 <span class="days">{{ e.overdue_days }}</span> 天</span>
+        {% endif %}
+      </td>
+      <td style="text-align:right;">
+        <a class="btn primary" href="{% url 'board:check' e.code %}">去点检</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align:center;color:var(--muted);padding:48px;">
+  🎉 当前范围没有超期红牌设备。
+</div>
+{% endif %}
+{% endblock %}

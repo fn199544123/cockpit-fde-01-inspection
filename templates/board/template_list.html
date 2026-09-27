@@ -1,0 +1,46 @@
+{% extends 'board/base.html' %}
+{% block title %}点检标准 · 设备点检工单看板{% endblock %}
+{% block heading %}点检标准模板{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form class="toolbar" method="get">
+    <span style="color:var(--muted);font-size:14px;">
+      维护可复用的标准点检清单,一键套用到同类设备。共 {{ total }} 份模板。
+    </span>
+    <span class="spacer"></span>
+    <a class="btn primary" href="{% url 'board:template_create' %}">+ 新增模板</a>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>模板名称</th><th>适用设备类型</th><th>说明</th>
+        <th>点检项数</th><th>状态</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in templates %}
+      <tr>
+        <td><a href="{% url 'board:template_detail' t.pk %}">{{ t.name }}</a></td>
+        <td>{{ t.category|default:"—" }}</td>
+        <td style="color:var(--muted);">{{ t.description|default:"—" }}</td>
+        <td><span class="pill accent">{{ t.n_items }} 项</span></td>
+        <td>
+          {% if t.is_active %}<span class="pill ok">启用</span>
+          {% else %}<span class="pill muted">停用</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'board:template_detail' t.pk %}">套用</a> ·
+          <a href="{% url 'board:template_edit' t.pk %}">编辑</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="color:var(--muted);padding:30px 14px;text-align:center;">
+        暂无模板,点右上角「+ 新增模板」创建第一份点检标准。
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

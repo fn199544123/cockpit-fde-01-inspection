@@ -1,0 +1,74 @@
+{% extends 'board/base.html' %}
+{% block title %}点检记录 · {{ equipment.code }}{% endblock %}
+{% block heading %}点检记录详情{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:22px;">
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+    <h2 style="font-size:20px;">{{ equipment.code }} · {{ equipment.name }}</h2>
+    {% if record.has_abnormal %}<span class="pill danger">本次有异常</span>
+    {% else %}<span class="pill ok">全部正常</span>{% endif %}
+  </div>
+  <table>
+    <tr><th style="width:120px;">所在车间</th><td>{{ equipment.workshop }}</td></tr>
+    <tr><th>点检时间</th><td>{{ record.checked_at|date:"Y-m-d H:i" }}</td></tr>
+    <tr><th>点检人</th><td>{{ record.inspector|default:"—" }}</td></tr>
+    <tr><th>备注</th><td style="color:var(--muted);">{{ record.remark|default:"—" }}</td></tr>
+  </table>
+  <div class="form-actions">
+    <a class="btn ghost" href="{% url 'board:equipment_detail' equipment.pk %}">返回设备</a>
+    <a class="btn ghost" href="{% url 'board:check' equipment.code %}">再次点检</a>
+  </div>
+</div>
+
+<div class="sec-title">点检项结果
+  <span class="count">共 {{ rows|length }} 项 · 待派修异常 {{ abnormal_open }} 项</span>
+  <span class="bar"></span>
+</div>
+
+<div class="card mobile-record" style="padding:0;">
+  <table>
+    <thead>
+      <tr><th style="width:32%;">点检项</th><th>结果</th><th>异常说明</th><th style="width:220px;">派修</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>
+          {{ row.result.item.name }}
+          {% if row.result.item.standard %}
+            <div class="hint" style="margin-top:2px;">{{ row.result.item.standard }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.result.is_abnormal %}<span class="pill danger">异常</span>
+          {% else %}<span class="pill ok">正常</span>{% endif %}
+        </td>
+        <td style="color:var(--muted);">{{ row.result.note|default:"—" }}</td>
+        <td>
+          {% if row.result.is_abnormal %}
+            {% if row.work_order %}
+              <a class="pill accent" href="{% url 'board:workorder_detail' row.work_order.pk %}">
+                {{ row.work_order.code }} · {{ row.work_order.get_status_display }}
+              </a>
+            {% else %}
+              <form method="post" action="{% url 'board:result_dispatch' row.result.pk %}"
+                    style="display:flex; gap:8px; align-items:center;">
+                {% csrf_token %}
+                <input type="text" name="assignee" placeholder="指派给(默认负责人)"
+                       value="{{ equipment.owner }}"
+                       style="background:#0e1730; border:1px solid var(--line); color:var(--txt);
+                              padding:7px 10px; border-radius:8px; font-size:13px; width:130px;">
+                <button class="btn primary" type="submit" style="padding:7px 14px;">一键派修</button>
+              </form>
+            {% endif %}
+          {% else %}
+            <span style="color:var(--muted);">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

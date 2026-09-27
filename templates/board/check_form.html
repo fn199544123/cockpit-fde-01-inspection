@@ -1,0 +1,126 @@
+{% extends 'board/base.html' %}
+{% block title %}扫码点检 · {{ equipment.code }}{% endblock %}
+{% block heading %}扫码点检{% endblock %}
+
+{% block content %}
+<style>
+  .chk-head { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .chk-head h2 { font-size:22px; }
+  .chk-meta { color:var(--muted); font-size:13px; margin-bottom:22px; display:flex; gap:20px; flex-wrap:wrap; }
+  .chk-meta b { color:var(--txt); font-weight:600; }
+  .item-row { border:1px solid var(--line); border-radius:12px; padding:16px 18px;
+              margin-bottom:14px; background:#0e1730; }
+  .item-row.bad { border-color:rgba(239,68,68,.5); }
+  .item-top { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .item-name { font-size:16px; font-weight:600; flex:1; min-width:180px; }
+  .item-std { color:var(--muted); font-size:12px; font-weight:400; margin-top:3px; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .seg label { padding:8px 18px; cursor:pointer; font-size:14px; user-select:none;
+               color:var(--muted); background:transparent; transition:.15s; }
+  .seg input { display:none; }
+  .seg label.ok-opt:hover { color:var(--ok); }
+  .seg label.bad-opt:hover { color:var(--danger); }
+  .seg input:checked + label.ok-opt { background:rgba(34,197,94,.18); color:var(--ok); font-weight:600; }
+  .seg input:checked + label.bad-opt { background:rgba(239,68,68,.2); color:var(--danger); font-weight:600; }
+  .note-wrap { margin-top:12px; }
+  .note-wrap textarea { width:100%; background:#0b1428; border:1px solid var(--line);
+      color:var(--txt); border-radius:9px; padding:10px 12px; font-size:14px; resize:vertical;
+      min-height:44px; font-family:inherit; }
+  .note-wrap.hide { display:none; }
+  .row-err { color:var(--danger); font-size:13px; margin-top:8px; }
+  .who { display:grid; grid-template-columns:1fr 2fr; gap:16px 20px; margin:22px 0 6px; }
+  .who .field input, .who .field textarea { background:#0e1730; border:1px solid var(--line);
+      color:var(--txt); padding:11px 13px; border-radius:10px; font-size:15px; width:100%;
+      font-family:inherit; }
+</style>
+
+<div class="card" style="max-width:720px; margin:0 auto;">
+  <div class="chk-head">
+    <h2>{{ equipment.name }}</h2>
+    {% if equipment.is_overdue %}<span class="pill danger">超期红牌</span>
+    {% else %}<span class="pill ok">在检周期内</span>{% endif %}
+    <span class="pill accent">{{ equipment.code }}</span>
+  </div>
+  <div class="chk-meta">
+    <span>所在车间 <b>{{ equipment.workshop }}</b></span>
+    <span>点检周期 <b>每 {{ equipment.cycle_days }} 天</b></span>
+    <span>负责人 <b>{{ equipment.owner|default:"—" }}</b></span>
+    <span>上次点检 <b>{% if last_record %}{{ last_record.checked_at|date:"Y-m-d H:i" }}{% else %}尚无记录{% endif %}</b></span>
+  </div>
+
+  {% if not has_items %}
+    <div class="msg" style="background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.4); color:#fde68a;">
+      ⚠️ 该设备尚未配置启用的点检项。请先到
+      <a href="{% url 'board:equipment_detail' equipment.pk %}">设备详情</a>
+      或<a href="{% url 'board:template_list' %}">点检标准</a>套用一份标准点检清单。
+    </div>
+    <div class="form-actions">
+      <a class="btn ghost" href="{% url 'board:equipment_detail' equipment.pk %}">返回设备详情</a>
+    </div>
+  {% else %}
+    <form method="post" action="{% url 'board:check' equipment.code %}">
+      {% csrf_token %}
+      <div class="sec-title">点检项 <span class="count">逐项确认正常 / 异常</span><span class="bar"></span></div>
+
+      {% for row in rows %}
+      <div class="item-row {% if row.error %}bad{% endif %}" data-item="{{ row.item.pk }}">
+        <div class="item-top">
+          <div class="item-name">
+            {{ forloop.counter }}. {{ row.item.name }}
+            {% if row.item.standard %}<div class="item-std">标准:{{ row.item.standard }}</div>{% endif %}
+          </div>
+          <div class="seg">
+            <input type="radio" id="ok_{{ row.item.pk }}" name="status_{{ row.item.pk }}"
+                   value="normal" {% if row.status == 'normal' %}checked{% endif %}
+                   onchange="toggleNote({{ row.item.pk }})">
+            <label class="ok-opt" for="ok_{{ row.item.pk }}">正常</label>
+            <input type="radio" id="bad_{{ row.item.pk }}" name="status_{{ row.item.pk }}"
+                   value="abnormal" {% if row.status == 'abnormal' %}checked{% endif %}
+                   onchange="toggleNote({{ row.item.pk }})">
+            <label class="bad-opt" for="bad_{{ row.item.pk }}">异常</label>
+          </div>
+        </div>
+        <div class="note-wrap {% if row.status != 'abnormal' %}hide{% endif %}" id="note_wrap_{{ row.item.pk }}">
+          <textarea name="note_{{ row.item.pk }}" placeholder="异常说明(必填):现象 / 部位 / 初判…">{{ row.note }}</textarea>
+        </div>
+        {% if row.error %}<div class="row-err">⚠️ {{ row.error }}</div>{% endif %}
+      </div>
+      {% endfor %}
+
+      <div class="who">
+        <div class="field">
+          <label>点检人</label>
+          <input type="text" name="inspector" value="{{ inspector }}" placeholder="如 张师傅(化名)">
+        </div>
+        <div class="field">
+          <label>本次备注(选填)</label>
+          <input type="text" name="remark" value="{{ remark }}" placeholder="整体情况 / 交接说明…">
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn ghost" onclick="markAllNormal()">一键全部正常</button>
+        <span class="spacer" style="flex:1;"></span>
+        <a class="btn ghost" href="{% url 'board:equipment_detail' equipment.pk %}">取消</a>
+        <button type="submit" class="btn primary">提交点检</button>
+      </div>
+    </form>
+  {% endif %}
+</div>
+
+<script>
+  function toggleNote(pk) {
+    var bad = document.getElementById('bad_' + pk);
+    var wrap = document.getElementById('note_wrap_' + pk);
+    if (!wrap) return;
+    wrap.classList.toggle('hide', !(bad && bad.checked));
+  }
+  function markAllNormal() {
+    document.querySelectorAll('.item-row').forEach(function (row) {
+      var pk = row.getAttribute('data-item');
+      var ok = document.getElementById('ok_' + pk);
+      if (ok) { ok.checked = true; toggleNote(pk); }
+    });
+  }
+</script>
+{% endblock %}

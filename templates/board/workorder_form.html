@@ -1,0 +1,43 @@
+{% extends 'board/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:820px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="field">
+        <label>设备</label>
+        {{ form.equipment }}
+        {% if form.equipment.errors %}<div class="err">{{ form.equipment.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label>指派给</label>
+        {{ form.assignee }}
+        {% if form.assignee.errors %}<div class="err">{{ form.assignee.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field full">
+        <label>工单标题</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="err">{{ form.title.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field full">
+        <label>详情</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="err">{{ form.description.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn primary" type="submit">{% if is_create %}创建工单{% else %}保存修改{% endif %}</button>
+      {% if is_create %}
+        <a class="btn ghost" href="{% url 'board:workorder_list' %}">取消</a>
+      {% else %}
+        <a class="btn ghost" href="{% url 'board:workorder_detail' wo.pk %}">取消</a>
+      {% endif %}
+    </div>
+    <div class="hint">工单编号将在保存时自动生成(WO+日期+随机);状态默认「待处理」,可在详情页流转。</div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'board/base.html' %}
+{% block title %}设备台账 · 设备点检工单看板{% endblock %}
+{% block heading %}设备台账{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="card stat"><div class="label">设备总数</div><div class="num accent">{{ total }}</div></div>
+  <div class="card stat"><div class="label">点检正常</div><div class="num ok">{{ ok }}</div></div>
+  <div class="card stat"><div class="label">超期红牌</div><div class="num danger">{{ overdue }}</div></div>
+</div>
+
+<div class="card">
+  <form class="toolbar" method="get">
+    <input type="text" name="q" value="{{ keyword }}" placeholder="搜索编号 / 名称 / 负责人">
+    <select name="workshop">
+      <option value="">全部车间</option>
+      {% for w in workshops %}
+        <option value="{{ w }}" {% if w == cur_workshop %}selected{% endif %}>{{ w }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit">筛选</button>
+    <a class="btn ghost" href="{% url 'board:equipment_list' %}">重置</a>
+    <span class="spacer"></span>
+    <a class="btn primary" href="{% url 'board:equipment_create' %}">+ 新增设备</a>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>设备编号</th><th>名称</th><th>车间</th><th>点检周期</th>
+        <th>负责人</th><th>点检状态</th><th>启用</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for eq in equipments %}
+      <tr>
+        <td><a href="{% url 'board:equipment_detail' eq.pk %}">{{ eq.code }}</a></td>
+        <td>{{ eq.name }}</td>
+        <td>{{ eq.workshop }}</td>
+        <td>每 {{ eq.cycle_days }} 天</td>
+        <td>{{ eq.owner|default:"—" }}</td>
+        <td>
+          {% if eq.is_overdue %}<span class="pill danger">超期红牌</span>
+          {% else %}<span class="pill ok">正常</span>{% endif %}
+        </td>
+        <td>
+          {% if eq.is_active %}<span class="pill muted">启用</span>
+          {% else %}<span class="pill muted">停用</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'board:equipment_detail' eq.pk %}">二维码</a> ·
+          <a href="{% url 'board:equipment_edit' eq.pk %}">编辑</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" style="color:var(--muted);padding:30px 14px;text-align:center;">
+        暂无设备,点右上角「+ 新增设备」创建第一台。
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

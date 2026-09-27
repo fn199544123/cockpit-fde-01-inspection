@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 大屏投屏:60 秒自动刷新,保持红牌预警实时 -->
+  <meta http-equiv="refresh" content="60">
+  <title>设备点检工单看板 · 大屏</title>
+  <style>
+    :root { --bg:#070b18; --card:#111a30; --card2:#0e1730; --line:#233156; --txt:#e6ecff;
+            --muted:#8aa0d0; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; --accent:#38bdf8;
+            --purple:#a78bfa; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:
+             radial-gradient(1200px 600px at 12% -8%, rgba(56,189,248,.10), transparent 60%),
+             radial-gradient(1000px 520px at 100% 0%, rgba(167,139,250,.10), transparent 55%),
+             var(--bg);
+           color:var(--txt); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+           min-height:100vh; padding:26px 34px 40px; }
+    a { color:var(--accent); text-decoration:none; }
+
+    /* ===== 顶栏 ===== */
+    header.top { display:flex; align-items:center; gap:18px;
+                 border-bottom:1px solid var(--line); padding-bottom:16px; }
+    header.top .logo { width:12px; height:34px; border-radius:4px;
+                       background:linear-gradient(180deg,var(--accent),var(--purple)); }
+    header.top h1 { font-size:27px; letter-spacing:3px; font-weight:800; }
+    header.top .sub { color:var(--muted); font-size:13px; }
+    header.top .clock { margin-left:auto; text-align:right; }
+    header.top .clock .t { font-size:26px; font-weight:700; letter-spacing:1px;
+                           font-variant-numeric:tabular-nums; }
+    header.top .clock .d { color:var(--muted); font-size:12px; margin-top:2px; }
+    nav.tabs { display:flex; gap:16px; font-size:13px; margin:14px 0 4px; }
+    nav.tabs a { color:var(--muted); padding:4px 0; }
+    nav.tabs a:hover { color:var(--txt); }
+    nav.tabs a.red { color:var(--danger); }
+
+    /* ===== KPI 卡 ===== */
+    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-top:18px; }
+    .kpi { position:relative; background:var(--card); border:1px solid var(--line);
+           border-radius:16px; padding:20px 22px; overflow:hidden; }
+    .kpi::after { content:""; position:absolute; right:-30px; top:-30px; width:120px; height:120px;
+                  border-radius:50%; background:currentColor; opacity:.07; }
+    .kpi .label { color:var(--muted); font-size:14px; }
+    .kpi .num { font-size:46px; font-weight:800; margin-top:6px; line-height:1;
+                font-variant-numeric:tabular-nums; }
+    .kpi .foot { color:var(--muted); font-size:12px; margin-top:10px; }
+    .c-accent { color:var(--accent); } .c-ok { color:var(--ok); }
+    .c-danger { color:var(--danger); } .c-warn { color:var(--warn); } .c-purple{ color:var(--purple); }
+
+    /* ===== 布局 ===== */
+    .section-title { display:flex; align-items:center; gap:12px; margin:30px 0 14px;
+                     font-size:15px; font-weight:700; letter-spacing:1px; }
+    .section-title .bar { flex:1; height:1px;
+                          background:linear-gradient(90deg,var(--line),transparent); }
+    .section-title a { font-size:12px; font-weight:400; }
+    .row { display:grid; gap:20px; }
+    .row.c2 { grid-template-columns:1.15fr .85fr; }
+    .row.c3 { grid-template-columns:repeat(3,1fr); }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:16px;
+             padding:22px 24px; }
+    .panel h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
+    .panel .cap { color:var(--muted); font-size:12px; margin-bottom:16px; }
+
+    /* ===== 各车间点检完成率 ===== */
+    .ws-item { margin-bottom:18px; }
+    .ws-item:last-child { margin-bottom:2px; }
+    .ws-head { display:flex; align-items:baseline; gap:10px; margin-bottom:7px; }
+    .ws-head .nm { font-size:15px; font-weight:700; }
+    .ws-head .fr { color:var(--muted); font-size:12px; }
+    .ws-head .rate { margin-left:auto; font-size:20px; font-weight:800;
+                     font-variant-numeric:tabular-nums; }
+    .ws-track { height:14px; background:var(--card2); border-radius:8px; overflow:hidden;
+                border:1px solid var(--line); }
+    .ws-fill { height:100%; border-radius:8px; transition:width .6s ease;
+               background:linear-gradient(90deg,#0ea5e9,#22c55e); }
+    .ws-fill.mid { background:linear-gradient(90deg,#f59e0b,#eab308); }
+    .ws-fill.low { background:linear-gradient(90deg,#ef4444,#f59e0b); }
+
+    /* ===== 甜甜圈(综合完成率 / 工单)===== */
+    .donut-wrap { display:flex; align-items:center; gap:22px; }
+    .donut { width:150px; height:150px; border-radius:50%; flex:0 0 auto;
+             display:flex; align-items:center; justify-content:center; position:relative; }
+    .donut::before { content:""; position:absolute; inset:16px; background:var(--card);
+                     border-radius:50%; }
+    .donut .in { position:relative; text-align:center; }
+    .donut .in .v { font-size:34px; font-weight:800; line-height:1; }
+    .donut .in .k { color:var(--muted); font-size:12px; margin-top:4px; }
+    .legend { flex:1; }
+    .legend .li { display:flex; align-items:center; gap:10px; padding:8px 0;
+                  border-bottom:1px dashed var(--line); font-size:14px; }
+    .legend .li:last-child { border-bottom:none; }
+    .legend .dot { width:11px; height:11px; border-radius:3px; }
+    .legend .li .n { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; }
+    .legend .li a { color:inherit; display:flex; align-items:center; gap:10px; flex:1; }
+
+    /* ===== 今日异常 TOP ===== */
+    .abn-row { display:flex; align-items:center; gap:14px; padding:11px 0;
+               border-bottom:1px solid var(--line); }
+    .abn-row:last-child { border-bottom:none; }
+    .abn-row .rk { width:24px; height:24px; border-radius:7px; flex:0 0 auto;
+                   display:flex; align-items:center; justify-content:center;
+                   font-size:13px; font-weight:800; background:var(--card2); color:var(--muted); }
+    .abn-row:nth-child(1) .rk { background:rgba(239,68,68,.22); color:#fecaca; }
+    .abn-row:nth-child(2) .rk { background:rgba(245,158,11,.20); color:#fde68a; }
+    .abn-row:nth-child(3) .rk { background:rgba(56,189,248,.18); color:#bae6fd; }
+    .abn-row .who { flex:1; min-width:0; }
+    .abn-row .who .c { font-weight:700; font-size:14px; }
+    .abn-row .who .m { color:var(--muted); font-size:12px; margin-top:2px; }
+    .abn-row .track { width:120px; height:9px; background:var(--card2); border-radius:6px;
+                      overflow:hidden; flex:0 0 auto; }
+    .abn-row .track .f { height:100%; border-radius:6px;
+                         background:linear-gradient(90deg,#f59e0b,#ef4444); }
+    .abn-row .cnt { width:52px; text-align:right; font-weight:800; color:var(--danger);
+                    font-variant-numeric:tabular-nums; }
+    .empty-ok { text-align:center; padding:26px 0; }
+    .empty-ok .ic { font-size:40px; } .empty-ok .tx { color:var(--ok); font-weight:700; margin-top:8px; }
+    .empty-ok .sm { color:var(--muted); font-size:12px; margin-top:4px; }
+
+    /* ===== 超期红牌预警横幅 ===== */
+    .alert-banner { display:flex; align-items:center; gap:24px; margin-top:20px; padding:22px 28px;
+                    border-radius:16px; border:2px solid var(--danger);
+                    background:linear-gradient(135deg,#3a0e14 0%,#1a0f1f 60%,#141c33 100%);
+                    animation:banner 1.8s ease-in-out infinite; }
+    @keyframes banner { 0%{ box-shadow:0 0 0 0 rgba(239,68,68,.45); }
+                        70%{ box-shadow:0 0 0 16px rgba(239,68,68,0); }
+                        100%{ box-shadow:0 0 0 0 rgba(239,68,68,0); } }
+    .alert-banner.clear { border-color:var(--ok); animation:none;
+                          background:linear-gradient(135deg,#0d2a18,#141c33); }
+    .alert-banner .flag { font-size:52px; line-height:1; }
+    .alert-banner .cnt { font-size:56px; font-weight:800; color:var(--danger); line-height:1;
+                         font-variant-numeric:tabular-nums; }
+    .alert-banner.clear .cnt { color:var(--ok); font-size:38px; }
+    .alert-banner .t { font-size:21px; font-weight:700; letter-spacing:1px; }
+    .alert-banner .d { color:var(--muted); font-size:13px; margin-top:6px; }
+    .alert-banner .to { margin-left:auto; }
+    .btn-red { display:inline-block; padding:11px 22px; border-radius:12px; font-weight:700;
+               font-size:15px; background:var(--danger); color:#fff; }
+
+    /* ===== 红牌榜 + 车间分布 ===== */
+    .rc-wrap { display:grid; grid-template-columns:2fr 1fr; gap:20px; }
+    .rc-list { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+    .rc-row { display:flex; align-items:center; gap:14px; padding:13px 20px;
+              border-bottom:1px solid var(--line); }
+    .rc-row:last-child { border-bottom:none; }
+    .rc-row .rank { width:26px; color:var(--muted); font-weight:800; font-size:15px; text-align:center; }
+    .rc-row .info { flex:1; }
+    .rc-row .info .code { font-weight:700; font-size:15px; }
+    .rc-row .info .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+    .tag { padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
+    .tag.never { background:rgba(239,68,68,.2); color:#fecaca; }
+    .tag.over { background:rgba(245,158,11,.18); color:#fde68a; }
+    .rc-side { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px; }
+    .rc-side .h { color:var(--muted); font-size:12px; letter-spacing:1px; margin-bottom:14px; }
+    .ws-bar { display:flex; align-items:center; gap:10px; margin-bottom:13px; }
+    .ws-bar .name { width:70px; font-size:13px; }
+    .ws-bar .track { flex:1; height:12px; background:var(--card2); border-radius:8px; overflow:hidden; }
+    .ws-bar .fill { height:100%; background:linear-gradient(90deg,#f59e0b,#ef4444); border-radius:8px; }
+    .ws-bar .v { width:24px; text-align:right; font-weight:800; color:var(--danger); }
+
+    /* ===== SVG 数据可视化图表 ===== */
+    .panel .hd { display:flex; align-items:baseline; gap:10px; margin-bottom:2px; }
+    .panel .hd h3 { margin:0; }
+    .panel .hd .badge { margin-left:auto; font-size:12px; font-weight:700;
+                        font-variant-numeric:tabular-nums; }
+    .chart { width:100%; height:auto; display:block; margin-top:10px; overflow:visible; }
+    .chart .grid { stroke:var(--line); stroke-width:1; stroke-dasharray:3 5; opacity:.55; }
+    .chart .axis-y { fill:var(--muted); font-size:11px; }
+    .chart .axis-x { fill:var(--muted); font-size:11px; }
+    .chart .line { fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+    .chart .dot { stroke:var(--bg); stroke-width:1.5; }
+    .chart .bar { rx:3; }
+    /* 图例 */
+    .chart-legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px;
+                    color:var(--muted); font-size:12px; }
+    .chart-legend .it { display:flex; align-items:center; gap:7px; }
+    .chart-legend .sw { width:16px; height:4px; border-radius:2px; }
+    .chart-legend .sw.dotsw { width:11px; height:11px; border-radius:3px; }
+    .chart-foot { color:var(--muted); font-size:12px; margin-top:12px;
+                  display:flex; gap:18px; flex-wrap:wrap; }
+    .chart-foot b { color:var(--txt); font-variant-numeric:tabular-nums; }
+
+    /* ===== 设备健康度分布(堆叠条 + 环形分)===== */
+    .health-wrap { display:flex; align-items:center; gap:26px; margin-top:6px; }
+    .health-gauge { width:150px; height:150px; border-radius:50%; flex:0 0 auto; position:relative;
+                    display:flex; align-items:center; justify-content:center; }
+    .health-gauge::before { content:""; position:absolute; inset:15px; background:var(--card);
+                            border-radius:50%; }
+    .health-gauge .in { position:relative; text-align:center; }
+    .health-gauge .in .v { font-size:34px; font-weight:800; line-height:1; }
+    .health-gauge .in .k { color:var(--muted); font-size:12px; margin-top:4px; }
+    .health-right { flex:1; }
+    .stackbar { display:flex; height:26px; border-radius:8px; overflow:hidden;
+                border:1px solid var(--line); background:var(--card2); margin-bottom:16px; }
+    .stackbar .seg { height:100%; display:flex; align-items:center; justify-content:center;
+                     font-size:12px; font-weight:800; color:#0b1020; transition:width .6s ease; }
+    .stackbar .seg.ok { background:linear-gradient(90deg,#22c55e,#16a34a); }
+    .stackbar .seg.sub { background:linear-gradient(90deg,#f59e0b,#eab308); }
+    .stackbar .seg.red { background:linear-gradient(90deg,#ef4444,#dc2626); color:#fff; }
+    .health-legend .li { display:flex; align-items:center; gap:10px; padding:7px 0;
+                         border-bottom:1px dashed var(--line); font-size:13px; }
+    .health-legend .li:last-child { border-bottom:none; }
+    .health-legend .dot { width:11px; height:11px; border-radius:3px; }
+    .health-legend .li .n { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; }
+    .health-legend .li .mut { color:var(--muted); font-size:12px; }
+
+    footer { margin-top:34px; color:var(--muted); font-size:12px;
+             border-top:1px solid var(--line); padding-top:16px; }
+    @media (max-width:640px) {
+      body { padding:16px 12px 28px; }
+      header.top { flex-wrap:wrap; gap:10px; }
+      header.top h1 { font-size:22px; letter-spacing:1px; }
+      header.top .clock { margin-left:0; }
+      .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+      .row.c2, .row.c3, .rc-wrap { grid-template-columns:minmax(0,1fr); }
+      .row > *, .kpis > * { min-width:0; }
+      .health-wrap { flex-direction:column; align-items:stretch; gap:16px; }
+      .health-gauge { align-self:center; }
+      svg { max-width:100%; }
+      nav, .nav { flex-wrap:wrap; }
+      .alert-banner { flex-wrap:wrap; gap:12px; padding:18px; }
+      .alert-banner > div:nth-child(3) { flex-basis:100%; }
+      .alert-banner .to { margin-left:0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="logo"></div>
+    <div>
+      <h1>设备点检工单看板</h1>
+      <div class="sub">某企业 · 演示大屏(数据脱敏)· 每 60 秒自动刷新</div>
+    </div>
+    <div class="clock">
+      <div class="t" id="clk">--:--:--</div>
+      <div class="d" id="dat"></div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <a href="/equipment/">设备台账</a>
+    <a href="/templates/">点检标准</a>
+    <a href="/plan/">应点检计划</a>
+    <a href="/alerts/" class="red">红牌预警</a>
+    <a href="/workorders/">维修工单 →</a>
+  </nav>
+
+  <!-- ===== KPI 概览 ===== -->
+  <div class="kpis">
+    <div class="kpi c-accent">
+      <div class="label">启用设备</div>
+      <div class="num c-accent">{{ total_equipment }}</div>
+      <div class="foot">周期内 {{ ok_count }} 台 · 超期 {{ overdue_count }} 台</div>
+    </div>
+    <div class="kpi {% if overall_rate >= 80 %}c-ok{% elif overall_rate >= 50 %}c-warn{% else %}c-danger{% endif %}">
+      <div class="label">综合点检完成率</div>
+      <div class="num {% if overall_rate >= 80 %}c-ok{% elif overall_rate >= 50 %}c-warn{% else %}c-danger{% endif %}">{{ overall_rate }}%</div>
+      <div class="foot">全厂启用设备处于点检有效周期内占比</div>
+    </div>
+    <div class="kpi {% if today_abnormal_count %}c-warn{% else %}c-ok{% endif %}">
+      <div class="label">今日异常项</div>
+      <div class="num {% if today_abnormal_count %}c-warn{% else %}c-ok{% endif %}">{{ today_abnormal_count }}</div>
+      <div class="foot">今日已点检 {{ today_check_count }} 次</div>
+    </div>
+    <div class="kpi {% if overdue_count %}c-danger{% else %}c-ok{% endif %}">
+      <div class="label">超期红牌</div>
+      <div class="num {% if overdue_count %}c-danger{% else %}c-ok{% endif %}">{{ overdue_count }}</div>
+      <div class="foot"><a href="/alerts/">查看红牌清单 →</a></div>
+    </div>
+  </div>
+
+  <!-- ===== 超期红牌预警横幅 ===== -->
+  <div class="alert-banner {% if not overdue_count %}clear{% endif %}">
+    {% if overdue_count %}
+      <div class="flag">🚩</div>
+      <div class="cnt">{{ overdue_count }}</div>
+      <div>
+        <div class="t">台设备超期未点检 · 红牌预警</div>
+        <div class="d">超过点检周期仍未点检,已自动判红牌,请立即安排点检 / 派修。</div>
+      </div>
+      <div class="to"><a class="btn-red" href="/alerts/">查看红牌清单 →</a></div>
+    {% else %}
+      <div class="flag">✅</div>
+      <div class="cnt">达标</div>
+      <div>
+        <div class="t" style="color:var(--ok);">当前无超期红牌设备</div>
+        <div class="d">全部启用设备均在点检周期内,设备健康度良好。</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ===== 各车间点检完成率 · 综合完成率环 ===== -->
+  <div class="section-title">各车间点检完成率<span class="bar"></span>
+    <a href="/plan/">应点检计划 →</a></div>
+  <div class="row c2">
+    <div class="panel">
+      <h3>车间点检完成率</h3>
+      <div class="cap">完成率 = 该车间周期内已点检(未超期)设备 / 启用设备 · 低完成率优先显示</div>
+      {% for w in workshop_rates %}
+      <div class="ws-item">
+        <div class="ws-head">
+          <span class="nm">{{ w.workshop }}</span>
+          <span class="fr">{{ w.done }}/{{ w.total }} 台达标</span>
+          <span class="rate {% if w.rate >= 80 %}c-ok{% elif w.rate >= 50 %}c-warn{% else %}c-danger{% endif %}">{{ w.rate }}%</span>
+        </div>
+        <div class="ws-track">
+          <div class="ws-fill {% if w.rate >= 80 %}{% elif w.rate >= 50 %}mid{% else %}low{% endif %}"
+               style="width:{{ w.rate }}%;"></div>
+        </div>
+      </div>
+      {% empty %}
+      <div style="color:var(--muted);font-size:13px;">暂无启用设备</div>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <h3>全厂综合完成率</h3>
+      <div class="cap">启用设备处于点检有效周期内占比</div>
+      <div class="donut-wrap">
+        <div class="donut" style="background:conic-gradient(
+              {% if overall_rate >= 80 %}var(--ok){% elif overall_rate >= 50 %}var(--warn){% else %}var(--danger){% endif %} {{ overall_rate }}%,
+              #1e2a48 {{ overall_rate }}% 100%);">
+          <div class="in">
+            <div class="v {% if overall_rate >= 80 %}c-ok{% elif overall_rate >= 50 %}c-warn{% else %}c-danger{% endif %}">{{ overall_rate }}%</div>
+            <div class="k">完成率</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="li"><span class="dot" style="background:var(--ok);"></span>周期内已点检<span class="n c-ok">{{ ok_count }}</span></div>
+          <div class="li"><span class="dot" style="background:var(--danger);"></span>超期未点检<span class="n c-danger">{{ overdue_count }}</span></div>
+          <div class="li"><span class="dot" style="background:var(--accent);"></span>今日已点检次数<span class="n c-accent">{{ today_check_count }}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 今日异常 TOP · 工单状态分布 ===== -->
+  <div class="section-title">今日异常 TOP · 工单状态分布<span class="bar"></span>
+    <a href="/workorders/">工单管理 →</a></div>
+  <div class="row c2">
+    <div class="panel">
+      <h3>今日异常 TOP</h3>
+      <div class="cap">按设备聚合当日点检异常项数量,异常越多越靠前</div>
+      {% if abnormal_top %}
+        {% for a in abnormal_top %}
+        <div class="abn-row">
+          <div class="rk">{{ forloop.counter }}</div>
+          <div class="who">
+            <div class="c"><a href="/equipment/{{ a.record__equipment__pk }}/">{{ a.record__equipment__code }} · {{ a.record__equipment__name }}</a></div>
+            <div class="m">{{ a.record__equipment__workshop }}</div>
+          </div>
+          <div class="track"><div class="f" style="width:{% widthratio a.n abnormal_top_max 100 %}%;"></div></div>
+          <div class="cnt">{{ a.n }} 项</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-ok">
+          <div class="ic">🎉</div>
+          <div class="tx">今日暂无点检异常</div>
+          <div class="sm">今日已点检 {{ today_check_count }} 次,全部正常</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3>工单状态分布</h3>
+      <div class="cap">共 {{ wo_total }} 单 · 未完结 {{ wo_open }} 单</div>
+      <div class="donut-wrap">
+        {% widthratio wo_pending wo_total 100 as p_pending %}
+        {% widthratio wo_processing wo_total 100 as p_proc %}
+        <div class="donut" style="background:{% if wo_total %}conic-gradient(
+              var(--warn) 0 {{ p_pending }}%,
+              var(--accent) {{ p_pending }}% {% widthratio wo_pending|add:wo_processing wo_total 100 %}%,
+              var(--ok) {% widthratio wo_pending|add:wo_processing wo_total 100 %}% 100%){% else %}#1e2a48{% endif %};">
+          <div class="in">
+            <div class="v">{{ wo_total }}</div>
+            <div class="k">工单总数</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="li"><a href="/workorders/?status=pending"><span class="dot" style="background:var(--warn);"></span>待处理<span class="n c-warn">{{ wo_pending }}</span></a></div>
+          <div class="li"><a href="/workorders/?status=processing"><span class="dot" style="background:var(--accent);"></span>处理中<span class="n c-accent">{{ wo_processing }}</span></a></div>
+          <div class="li"><a href="/workorders/?status=done"><span class="dot" style="background:var(--ok);"></span>已完成<span class="n c-ok">{{ wo_done }}</span></a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 运营趋势分析(纯手写 SVG,不引任何 CDN)===== -->
+  <div class="section-title">运营趋势分析 · 近 14 天<span class="bar"></span>
+    <span style="color:var(--muted);font-size:12px;font-weight:400;">数据实时取自点检记录 / 工单库</span></div>
+
+  <div class="row c2">
+    <!-- 完成率趋势(面积折线) -->
+    <div class="panel">
+      <div class="hd">
+        <h3>点检完成率趋势</h3>
+        <span class="badge {% if comp_last >= 80 %}c-ok{% elif comp_last >= 50 %}c-warn{% else %}c-danger{% endif %}">当前 {{ comp_last }}%</span>
+      </div>
+      <div class="cap">每日处于点检有效周期内的设备占比 · 均值 {{ comp_avg }}%</div>
+      <svg class="chart" viewBox="0 0 {{ chart_w }} {{ chart_h }}" role="img" aria-label="点检完成率趋势">
+        <defs>
+          <linearGradient id="gComp" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity=".42"/>
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        {% for g in comp_grid %}
+          <line class="grid" x1="{{ chart_x0 }}" y1="{{ g.y }}" x2="{{ chart_x1 }}" y2="{{ g.y }}"/>
+          <text class="axis-y" x="{{ chart_x0|add:'-8' }}" y="{{ g.y|add:'4' }}" text-anchor="end">{{ g.label }}</text>
+        {% endfor %}
+        <path d="{{ comp_line.area }}" fill="url(#gComp)"/>
+        <polyline class="line" points="{{ comp_line.poly }}" stroke="var(--accent)"/>
+        {% for p in comp_line.points %}<circle class="dot" cx="{{ p.x }}" cy="{{ p.y }}" r="3" fill="var(--accent)"/>{% endfor %}
+        {% for x in chart_xlabels %}<text class="axis-x" x="{{ x.x }}" y="{{ chart_y1|add:'20' }}" text-anchor="middle">{{ x.t }}</text>{% endfor %}
+      </svg>
+    </div>
+
+    <!-- 工单燃尽(累计新建 vs 累计完成) -->
+    <div class="panel">
+      <div class="hd">
+        <h3>工单燃尽图</h3>
+        <span class="badge {% if burn_open_now %}c-warn{% else %}c-ok{% endif %}">未完结 {{ burn_open_now }}</span>
+      </div>
+      <div class="cap">累计新建与累计完成的差距即当前未完结存量</div>
+      <svg class="chart" viewBox="0 0 {{ chart_w }} {{ chart_h }}" role="img" aria-label="工单燃尽图">
+        <defs>
+          <linearGradient id="gBurn" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f59e0b" stop-opacity=".28"/>
+            <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        {% for g in burn_grid %}
+          <line class="grid" x1="{{ chart_x0 }}" y1="{{ g.y }}" x2="{{ chart_x1 }}" y2="{{ g.y }}"/>
+          <text class="axis-y" x="{{ chart_x0|add:'-8' }}" y="{{ g.y|add:'4' }}" text-anchor="end">{{ g.label }}</text>
+        {% endfor %}
+        <path d="{{ burn_created.area }}" fill="url(#gBurn)"/>
+        <polyline class="line" points="{{ burn_created.poly }}" stroke="var(--warn)"/>
+        <polyline class="line" points="{{ burn_done.poly }}" stroke="var(--ok)"/>
+        {% for p in burn_created.points %}<circle class="dot" cx="{{ p.x }}" cy="{{ p.y }}" r="2.6" fill="var(--warn)"/>{% endfor %}
+        {% for p in burn_done.points %}<circle class="dot" cx="{{ p.x }}" cy="{{ p.y }}" r="2.6" fill="var(--ok)"/>{% endfor %}
+        {% for x in chart_xlabels %}<text class="axis-x" x="{{ x.x }}" y="{{ chart_y1|add:'20' }}" text-anchor="middle">{{ x.t }}</text>{% endfor %}
+      </svg>
+      <div class="chart-legend">
+        <span class="it"><span class="sw" style="background:var(--warn);"></span>累计新建 {{ burn_created_now }}</span>
+        <span class="it"><span class="sw" style="background:var(--ok);"></span>累计完成 {{ burn_done_now }}</span>
+        <span class="it"><span class="sw" style="background:var(--danger);"></span>未完结 {{ burn_open_now }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row c2" style="margin-top:20px;">
+    <!-- 每日点检量 + 异常 -->
+    <div class="panel">
+      <div class="hd">
+        <h3>每日点检量与异常</h3>
+        <span class="badge c-accent">共 {{ vol_total }} 次</span>
+      </div>
+      <div class="cap">柱=当日点检次数 · 折线=当日异常项数(累计异常 {{ vol_abn_total }} 项)</div>
+      <svg class="chart" viewBox="0 0 {{ chart_w }} {{ chart_h }}" role="img" aria-label="每日点检量与异常">
+        {% for g in vol_grid %}
+          <line class="grid" x1="{{ chart_x0 }}" y1="{{ g.y }}" x2="{{ chart_x1 }}" y2="{{ g.y }}"/>
+          <text class="axis-y" x="{{ chart_x0|add:'-8' }}" y="{{ g.y|add:'4' }}" text-anchor="end">{{ g.label }}</text>
+        {% endfor %}
+        {% for b in vol_bars %}<rect class="bar" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3" fill="var(--accent)" opacity=".85"/>{% endfor %}
+        <polyline class="line" points="{{ vol_abn_line.poly }}" stroke="var(--danger)"/>
+        {% for p in vol_abn_line.points %}<circle class="dot" cx="{{ p.x }}" cy="{{ p.y }}" r="2.6" fill="var(--danger)"/>{% endfor %}
+        {% for x in chart_xlabels %}<text class="axis-x" x="{{ x.x }}" y="{{ chart_y1|add:'20' }}" text-anchor="middle">{{ x.t }}</text>{% endfor %}
+      </svg>
+      <div class="chart-legend">
+        <span class="it"><span class="sw dotsw" style="background:var(--accent);"></span>点检次数</span>
+        <span class="it"><span class="sw" style="background:var(--danger);"></span>异常项数</span>
+      </div>
+    </div>
+
+    <!-- 设备健康度分布 -->
+    <div class="panel">
+      <div class="hd">
+        <h3>设备健康度分布</h3>
+        <span class="badge {% if health_score >= 80 %}c-ok{% elif health_score >= 50 %}c-warn{% else %}c-danger{% endif %}">健康分 {{ health_score }}</span>
+      </div>
+      <div class="cap">健康 = 周期内且无未完结工单 · 亚健康 = 有未完结工单 · 红牌 = 超期未点检</div>
+      <div class="health-wrap">
+        <div class="health-gauge" style="background:conic-gradient(
+              var(--ok) 0 {{ health_ok_pct }}%,
+              var(--warn) {{ health_ok_pct }}% {{ health_sub_pct|add:health_ok_pct }}%,
+              var(--danger) {{ health_sub_pct|add:health_ok_pct }}% 100%);">
+          <div class="in">
+            <div class="v {% if health_score >= 80 %}c-ok{% elif health_score >= 50 %}c-warn{% else %}c-danger{% endif %}">{{ health_score }}</div>
+            <div class="k">健康分</div>
+          </div>
+        </div>
+        <div class="health-right">
+          <div class="stackbar">
+            {% if health_ok_pct %}<div class="seg ok" style="width:{{ health_ok_pct }}%;">{% if health_ok_pct >= 12 %}{{ health_ok }}{% endif %}</div>{% endif %}
+            {% if health_sub_pct %}<div class="seg sub" style="width:{{ health_sub_pct }}%;">{% if health_sub_pct >= 12 %}{{ health_sub }}{% endif %}</div>{% endif %}
+            {% if health_red_pct %}<div class="seg red" style="width:{{ health_red_pct }}%;">{% if health_red_pct >= 12 %}{{ health_red }}{% endif %}</div>{% endif %}
+          </div>
+          <div class="health-legend">
+            <div class="li"><span class="dot" style="background:var(--ok);"></span>健康 <span class="mut">周期内 · 无未完结工单</span><span class="n c-ok">{{ health_ok }}</span></div>
+            <div class="li"><span class="dot" style="background:var(--warn);"></span>亚健康 <span class="mut">有未完结维修工单</span><span class="n c-warn">{{ health_sub }}</span></div>
+            <div class="li"><span class="dot" style="background:var(--danger);"></span>红牌 <span class="mut">超期未点检</span><span class="n c-danger">{{ health_red }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 红牌设备预警榜 ===== -->
+  {% if overdue_count %}
+  <div class="section-title">红牌设备预警榜(最紧急优先)<span class="bar"></span>
+    <a href="/alerts/">全部 →</a></div>
+  <div class="rc-wrap">
+    <div class="rc-list">
+      {% for e in redcard_top %}
+      <div class="rc-row">
+        <div class="rank">{{ forloop.counter }}</div>
+        <div class="info">
+          <div class="code"><a href="/equipment/{{ e.pk }}/">{{ e.code }} · {{ e.name }}</a></div>
+          <div class="meta">{{ e.workshop }} · 负责人 {{ e.owner|default:"—" }} · 周期 {{ e.cycle_days }} 天</div>
+        </div>
+        {% if e.plan_status == 'never' %}
+          <span class="tag never">从未点检</span>
+        {% else %}
+          <span class="tag over">超期 {{ e.overdue_days }} 天</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rc-side">
+      <div class="h">红牌车间分布</div>
+      {% for w, n in redcard_by_workshop %}
+      <div class="ws-bar">
+        <div class="name" title="{{ w }}">{{ w }}</div>
+        <div class="track"><div class="fill" style="width:{% widthratio n overdue_count 100 %}%;"></div></div>
+        <div class="v">{{ n }}</div>
+      </div>
+      {% empty %}
+      <div style="color:var(--muted);font-size:13px;">—</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <footer>入口页 / = 大屏看板 · 数据全部来自真实数据库(设备台账 / 点检记录 / 异常结果 / 工单)· Django + SQLite · 端口 18801 · 超期红牌 = 超过点检周期仍未点检自动判定</footer>
+
+  <script>
+    // 大屏时钟(纯前端,不依赖任何 CDN)
+    function pad(n){ return n < 10 ? '0' + n : '' + n; }
+    var WK = ['日','一','二','三','四','五','六'];
+    function tick(){
+      var d = new Date();
+      var c = document.getElementById('clk');
+      var dt = document.getElementById('dat');
+      if (c) c.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      if (dt) dt.textContent = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' 星期' + WK[d.getDay()];
+    }
+    tick(); setInterval(tick, 1000);
+  </script>
+</body>
+</html>

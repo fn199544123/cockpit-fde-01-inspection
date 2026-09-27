@@ -1,0 +1,83 @@
+{% extends 'board/base.html' %}
+{% block title %}{{ wo.code }} · 工单详情{% endblock %}
+{% block heading %}工单详情 · {{ wo.code }}{% endblock %}
+
+{% block content %}
+<div class="mobile-stack" style="display:grid; grid-template-columns:1.4fr 1fr; gap:24px; align-items:start;">
+
+  <div class="card">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <h2 style="font-size:20px;">{{ wo.title }}</h2>
+      {% if wo.status == 'pending' %}<span class="pill warn">待处理</span>
+      {% elif wo.status == 'processing' %}<span class="pill accent">处理中</span>
+      {% else %}<span class="pill ok">已完成</span>{% endif %}
+    </div>
+
+    <table>
+      <tr><th style="width:110px;">工单编号</th><td>{{ wo.code }}</td></tr>
+      <tr><th>设备</th><td>
+        <a href="{% url 'board:equipment_detail' wo.equipment.pk %}">{{ wo.equipment.code }} {{ wo.equipment.name }}</a>
+        <span style="color:var(--muted);"> · {{ wo.equipment.workshop }}</span>
+      </td></tr>
+      <tr><th>指派给</th><td>{{ wo.assignee|default:"(未指派)" }}</td></tr>
+      <tr><th>创建时间</th><td>{{ wo.created_at|date:"Y-m-d H:i" }}</td></tr>
+      <tr><th>更新时间</th><td>{{ wo.updated_at|date:"Y-m-d H:i" }}</td></tr>
+      <tr><th>完成时间</th><td>
+        {% if wo.finished_at %}{{ wo.finished_at|date:"Y-m-d H:i" }}
+        {% else %}<span style="color:var(--muted);">—</span>{% endif %}
+      </td></tr>
+    </table>
+
+    {% if wo.description %}
+    <div class="sec-title" style="margin-top:22px;">工单详情<span class="bar"></span></div>
+    <div style="white-space:pre-wrap; color:var(--txt); line-height:1.7; font-size:14px;">{{ wo.description }}</div>
+    {% endif %}
+
+    <div class="form-actions">
+      <a class="btn ghost" href="{% url 'board:workorder_edit' wo.pk %}">编辑工单</a>
+      <a class="btn ghost" href="{% url 'board:workorder_list' %}">返回列表</a>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="label" style="color:var(--muted); font-size:14px; margin-bottom:14px;">状态流转</div>
+      {% if next_statuses %}
+        <div style="display:flex; flex-direction:column; gap:12px;">
+        {% for val, label in next_statuses %}
+          <form method="post" action="{% url 'board:workorder_transition' wo.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="{{ val }}">
+            <button class="btn {% if val == 'done' %}primary{% endif %}" type="submit" style="width:100%;">
+              {% if val == 'done' %}✓ 标记已完成
+              {% elif val == 'processing' %}▶ 转为处理中
+              {% else %}↩ 退回待处理{% endif %}
+            </button>
+          </form>
+        {% endfor %}
+        </div>
+      {% else %}
+        <div style="color:var(--muted); font-size:14px;">已是终态,无可用流转。</div>
+      {% endif %}
+    </div>
+
+    {% if source_result %}
+    <div class="card" style="margin-top:20px;">
+      <div class="label" style="color:var(--muted); font-size:14px; margin-bottom:12px;">来源异常项</div>
+      <div style="font-size:14px; line-height:1.7;">
+        <div><b>{{ source_result.item.name }}</b> <span class="pill danger">异常</span></div>
+        {% if source_result.note %}<div style="color:var(--muted); margin-top:6px;">{{ source_result.note }}</div>{% endif %}
+        <div style="margin-top:10px;">
+          <a href="{% url 'board:record_detail' source_result.record_id %}">查看该次点检记录 →</a>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card" style="margin-top:20px; color:var(--muted); font-size:13px;">
+      本工单为手动创建,无点检来源。
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

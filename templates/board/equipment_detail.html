@@ -1,0 +1,82 @@
+{% extends 'board/base.html' %}
+{% block title %}{{ equipment.code }} · 设备详情{% endblock %}
+{% block heading %}设备详情 · {{ equipment.code }}{% endblock %}
+
+{% block content %}
+<div style="display:grid; grid-template-columns:1.3fr 1fr; gap:24px; align-items:start;">
+
+  <div class="card">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <h2 style="font-size:22px;">{{ equipment.name }}</h2>
+      {% if equipment.is_overdue %}<span class="pill danger">超期红牌</span>
+      {% else %}<span class="pill ok">点检正常</span>{% endif %}
+      {% if not equipment.is_active %}<span class="pill muted">已停用</span>{% endif %}
+    </div>
+
+    <table>
+      <tr><th style="width:120px;">设备编号</th><td>{{ equipment.code }}</td></tr>
+      <tr><th>所在车间</th><td>{{ equipment.workshop }}</td></tr>
+      <tr><th>点检周期</th><td>每 {{ equipment.cycle_days }} 天</td></tr>
+      <tr><th>负责人</th><td>{{ equipment.owner|default:"—" }}</td></tr>
+      <tr><th>最近点检</th><td>
+        {% if last_record %}{{ last_record.checked_at|date:"Y-m-d H:i" }}
+          {% if last_record.inspector %}· {{ last_record.inspector }}{% endif %}
+        {% else %}<span style="color:var(--muted);">从未点检</span>{% endif %}
+      </td></tr>
+      <tr><th>下次应点检</th><td>
+        {% if next_due_at %}{{ next_due_at|date:"Y-m-d H:i" }}
+        {% else %}<span style="color:var(--danger);">立即(尚无点检记录)</span>{% endif %}
+      </td></tr>
+    </table>
+
+    <div class="form-actions">
+      <a class="btn primary" href="{% url 'board:check' equipment.code %}">去点检</a>
+      <a class="btn ghost" href="{% url 'board:equipment_edit' equipment.pk %}">编辑设备</a>
+      <a class="btn ghost" href="{% url 'board:equipment_list' %}">返回列表</a>
+    </div>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <div class="label" style="color:var(--muted); font-size:14px; margin-bottom:14px;">点检二维码</div>
+    <div style="background:#fff; padding:14px; border-radius:12px; display:inline-block;">
+      <img src="{% url 'board:equipment_qr' equipment.pk %}" alt="点检二维码"
+           style="width:210px; height:210px; display:block;">
+    </div>
+    <div class="hint" style="margin-top:16px;">扫码打开点检链接</div>
+    <div style="margin-top:6px; word-break:break-all; font-size:13px;">
+      <a href="{{ check_url }}">{{ check_url }}</a>
+    </div>
+    <div class="form-actions" style="justify-content:center;">
+      <a class="btn ghost" href="{% url 'board:equipment_qr' equipment.pk %}" target="_blank">查看/下载 SVG</a>
+      <button class="btn" type="button" onclick="window.print()">打印张贴</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="sec-title">点检履历 <span class="count">最近 {{ recent_records|length }} 次</span><span class="bar"></span></div>
+{% if recent_records %}
+<div class="card" style="padding:0;">
+  <table>
+    <thead>
+      <tr><th style="width:170px;">点检时间</th><th>点检人</th><th>结果</th><th>备注</th></tr>
+    </thead>
+    <tbody>
+      {% for rec in recent_records %}
+      <tr onclick="location.href='{% url 'board:record_detail' rec.pk %}'" style="cursor:pointer;">
+        <td><a href="{% url 'board:record_detail' rec.pk %}">{{ rec.checked_at|date:"Y-m-d H:i" }}</a></td>
+        <td>{{ rec.inspector|default:"—" }}</td>
+        <td>
+          {% if rec.n_abnormal %}<span class="pill danger">{{ rec.n_abnormal }} 项异常</span>
+          {% else %}<span class="pill ok">全部正常</span>{% endif %}
+        </td>
+        <td style="color:var(--muted);">{{ rec.remark|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="color:var(--muted);">该设备尚无点检记录,<a href="{% url 'board:check' equipment.code %}">立即去点检</a>。</div>
+{% endif %}
+{% endblock %}

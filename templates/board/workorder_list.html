@@ -1,0 +1,65 @@
+{% extends 'board/base.html' %}
+{% block title %}维修工单{% endblock %}
+{% block heading %}维修工单管理{% endblock %}
+
+{% block content %}
+<div class="stat-grid four">
+  <div class="card stat"><div class="label">工单总数</div><div class="num sm accent">{{ counts.total }}</div></div>
+  <div class="card stat"><div class="label">待处理</div><div class="num sm warn">{{ counts.pending }}</div></div>
+  <div class="card stat"><div class="label">处理中</div><div class="num sm accent">{{ counts.processing }}</div></div>
+  <div class="card stat"><div class="label">已完成</div><div class="num sm ok">{{ counts.done }}</div></div>
+</div>
+
+<form method="get" class="toolbar">
+  <select name="status" onchange="this.form.submit()">
+    <option value="">全部状态</option>
+    {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if cur_status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="workshop" onchange="this.form.submit()">
+    <option value="">全部车间</option>
+    {% for w in workshops %}
+      <option value="{{ w }}" {% if cur_workshop == w %}selected{% endif %}>{{ w }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" name="q" value="{{ keyword }}" placeholder="工单号 / 标题 / 指派人">
+  <button class="btn" type="submit">筛选</button>
+  {% if cur_status or cur_workshop or keyword %}
+    <a class="btn ghost" href="{% url 'board:workorder_list' %}">重置</a>
+  {% endif %}
+  <span class="spacer"></span>
+  <a class="btn primary" href="{% url 'board:workorder_create' %}">＋ 手动新建工单</a>
+</form>
+
+<div class="card" style="padding:0;">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:150px;">工单号</th><th>标题</th><th>设备 / 车间</th>
+        <th>指派给</th><th>状态</th><th style="width:150px;">创建时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for wo in work_orders %}
+      <tr onclick="location.href='{% url 'board:workorder_detail' wo.pk %}'" style="cursor:pointer;">
+        <td><a href="{% url 'board:workorder_detail' wo.pk %}">{{ wo.code }}</a></td>
+        <td>{{ wo.title }}</td>
+        <td>{{ wo.equipment.code }} <span style="color:var(--muted);">/ {{ wo.equipment.workshop }}</span></td>
+        <td>{{ wo.assignee|default:"(未指派)" }}</td>
+        <td>
+          {% if wo.status == 'pending' %}<span class="pill warn">待处理</span>
+          {% elif wo.status == 'processing' %}<span class="pill accent">处理中</span>
+          {% else %}<span class="pill ok">已完成</span>{% endif %}
+        </td>
+        <td style="color:var(--muted);">{{ wo.created_at|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="color:var(--muted); padding:26px 14px;">
+        暂无符合条件的工单。异常点检结果可在「点检记录」中一键派修生成工单。
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

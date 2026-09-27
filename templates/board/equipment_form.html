@@ -1,0 +1,54 @@
+{% extends 'board/base.html' %}
+{% block title %}{{ title }} · 设备点检工单看板{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:820px;">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="field err">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      <div class="field">
+        <label for="{{ form.code.id_for_label }}">设备编号 *</label>
+        {{ form.code }}
+        {% if form.code.errors %}<div class="err">{{ form.code.errors|striptags }}</div>{% endif %}
+        <div class="hint">保存后自动生成该设备的点检二维码</div>
+      </div>
+      <div class="field">
+        <label for="{{ form.name.id_for_label }}">设备名称 *</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="err">{{ form.name.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.workshop.id_for_label }}">所在车间 *</label>
+        {{ form.workshop }}
+        {% if form.workshop.errors %}<div class="err">{{ form.workshop.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.cycle_days.id_for_label }}">点检周期(天)*</label>
+        {{ form.cycle_days }}
+        {% if form.cycle_days.errors %}<div class="err">{{ form.cycle_days.errors|striptags }}</div>{% endif %}
+        <div class="hint">超过该周期未点检即触发超期红牌</div>
+      </div>
+      <div class="field">
+        <label for="{{ form.owner.id_for_label }}">负责人</label>
+        {{ form.owner }}
+        {% if form.owner.errors %}<div class="err">{{ form.owner.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label>状态</label>
+        <div class="check">{{ form.is_active }} <span>启用该设备</span></div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn primary" type="submit">保存</button>
+      {% if is_create %}
+        <a class="btn ghost" href="{% url 'board:equipment_list' %}">取消</a>
+      {% else %}
+        <a class="btn ghost" href="{% url 'board:equipment_detail' equipment.pk %}">取消</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}
